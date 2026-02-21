@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Timer</title>
+    <style>
+        :root {
+            /* 各セクションのメインカラー定義 */
+            --color-think: #e3f2fd; /* 淡い青 */
+            --color-think-border: #4361ee;
+            --color-ask: #fff3e0; /* 淡いオレンジ */
+            --color-ask-border: #fb8500;
+            --color-finish: #e8f5e9; /* 淡い緑 */
+            --color-finish-border: #38b000;
+        }
+
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            transition: background-color 0.8s ease; /* 背景色をふわっと変える */
+            border: 15px solid transparent; /* 枠線のベース */
+            box-sizing: border-box;
+        }
+
+        /* セクションごとの背景と枠線のスタイル */
+        body.mode-0 { background-color: var(--color-think); border-color: var(--color-think-border); }
+        body.mode-1 { background-color: var(--color-ask); border-color: var(--color-ask-border); }
+        body.mode-2 { background-color: var(--color-finish); border-color: var(--color-finish-border); }
+
+        .container {
+            width: 80%;
+            max-width: 800px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 3rem;
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+
+        #display { font-size: 5rem; font-weight: bold; margin-bottom: 1rem; color: #333; }
+        #phaseName { font-size: 1.5rem; font-weight: bold; margin-bottom: 2rem; color: #555; }
+
+        .timer-row { display: flex; gap: 15px; width: 100%; margin-bottom: 2rem; }
+        .section { display: flex; flex-direction: column; flex: 1; }
+
+        progress { width: 100%; height: 15px; appearance: none; border: none; }
+        progress::-webkit-progress-bar { background-color: #eee; border-radius: 10px; }
+        progress::-webkit-progress-value { border-radius: 10px; transition: width 0.3s linear; }
+
+        /* ボタンのデザイン */
+        .controls { display: flex; justify-content: center; gap: 15px; }
+        button {
+            padding: 12px 25px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            font-weight: bold;
+        }
+        button:active { transform: scale(0.95); }
+        #controlBtn { background-color: #333; color: white; }
+        #skipBtn { background-color: #fff; color: #333; border: 2px solid #333; }
+
+        /* 完了セット数 */
+        #cycleCount { margin-top: 2rem; color: #888; font-size: 0.9rem; }
+    </style>
+</head>
+<body class="mode-0">
+
+<div class="container">
+    <div id="phaseName">Ready?</div>
+    <div id="display">15:00</div>
+
+    <div class="timer-row">
+        <div class="section" style="flex: 15;"><progress id="bar0" value="0" max="100"></progress></div>
+        <div class="section" style="flex: 5;"><progress id="bar1" value="0" max="100"></progress></div>
+        <div class="section" style="flex: 10;"><progress id="bar2" value="0" max="100"></progress></div>
+    </div>
+
+    <div class="controls">
+        <button id="controlBtn">スタート</button>
+        <button id="skipBtn">次のセクションへ ≫</button>
+    </div>
+
+    <div id="cycleCount">完了セット数: 0</div>
+</div>
+
+<script>
+    const phases = [
+        { name: "自分で考える時間", time: 15 * 60, color: "#4361ee" },
+        { name: "質問", time: 5 * 60, color: "#fb8500" },
+        { name: "仕上げ・送信", time: 10 * 60, color: "#38b000" }
+    ];
+
+    let currentIdx = 0;
+    let timeLeft = phases[0].time;
+    let timerId = null;
+    let cycles = 0;
+
+    const display = document.getElementById('display');
+    const phaseDisplay = document.getElementById('phaseName');
+    const cycleDisplay = document.getElementById('cycleCount');
+    const btn = document.getElementById('controlBtn');
+    const skipBtn = document.getElementById('skipBtn');
+
+    function updateUI() {
+        const mins = Math.floor(timeLeft / 60);
+        const secs = timeLeft % 60;
+        display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+        // 背景と枠線のクラスを更新
+        document.body.className = `mode-${currentIdx}`;
+
+        phases.forEach((phase, index) => {
+            const bar = document.getElementById(`bar${index}`);
+            // 各プログレスバーの色も連動
+            const style = document.createElement('style');
+            style.innerHTML = `#bar${index}::-webkit-progress-value { background-color: ${phases[index].color}; opacity: ${index === currentIdx ? 1 : 0.3}; }`;
+            document.head.appendChild(style);
+
+            if (index < currentIdx) {
+                bar.value = 100;
+            } else if (index === currentIdx) {
+                bar.value = ((phase.time - timeLeft) / phase.time) * 100;
+            } else {
+                bar.value = 0;
+            }
+        });
+    }
+
+    function nextStep() {
+        currentIdx++;
+        if (currentIdx >= phases.length) {
+            currentIdx = 0;
+            cycles++;
+            cycleDisplay.textContent = `完了セット数: ${cycles}`;
+        }
+        timeLeft = phases[currentIdx].time;
+        phaseDisplay.textContent = phases[currentIdx].name;
+        updateUI();
+        if (timerId) start(); // 動いてる時は自動で次を開始
+    }
+
+    function start() {
+        if (timerId) clearInterval(timerId);
+        phaseDisplay.textContent = phases[currentIdx].name;
+        timerId = setInterval(() => {
+            timeLeft--;
+            updateUI();
+            if (timeLeft <= 0) {
+                clearInterval(timerId);
+                nextStep();
+            }
+        }, 1000);
+    }
+
+    btn.addEventListener('click', () => {
+        if (timerId) {
+            clearInterval(timerId);
+            timerId = null;
+            btn.textContent = "再開";
+        } else {
+            start();
+            btn.textContent = "一時停止";
+        }
+    });
+
+    skipBtn.addEventListener('click', () => {
+        // 今動いているかどうかのフラグを保持
+        const wasRunning = !!timerId;
+
+        // 今のタイマーを完全に止める
+        if (timerId) {
+            clearInterval(timerId);
+            timerId = null;
+        }
+
+        // 次のステップへ進む（内部でtimeLeftのセットとUI更新が行われる）
+        // 以前のコードのnextStep()の中でstart()を呼んでいた部分を整理して
+        // ここでコントロールするようにしたよ。
+
+        currentIdx++;
+        if (currentIdx >= phases.length) {
+            currentIdx = 0;
+            cycles++;
+            cycleDisplay.textContent = `完了セット数: ${cycles}`;
+        }
+        timeLeft = phases[currentIdx].time;
+        phaseDisplay.textContent = phases[currentIdx].name;
+
+        updateUI();
+
+        // もともと動いていたなら、そのまま次のフェーズも開始する
+        if (wasRunning) {
+            start();
+        } else {
+            // 止まってたなら、ボタンの表示を「スタート」に戻しておく
+            btn.textContent = "スタート";
+        }
+    });
+
+    updateUI();
+</script>
+</body>
+</html>
