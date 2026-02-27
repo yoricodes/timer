@@ -2,15 +2,14 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Timer</title>
+    <title>Timer with Big Clock</title>
     <style>
         :root {
-            /* 各セクションのメインカラー定義 */
-            --color-think: #e3f2fd; /* 淡い青 */
+            --color-think: #e3f2fd;
             --color-think-border: #4361ee;
-            --color-ask: #fff3e0; /* 淡いオレンジ */
+            --color-ask: #fff3e0;
             --color-ask-border: #fb8500;
-            --color-finish: #e8f5e9; /* 淡い緑 */
+            --color-finish: #e8f5e9;
             --color-finish-border: #38b000;
         }
 
@@ -21,15 +20,64 @@
             align-items: center;
             height: 100vh;
             font-family: 'Helvetica Neue', Arial, sans-serif;
-            transition: background-color 0.8s ease; /* 背景色をふわっと変える */
-            border: 15px solid transparent; /* 枠線のベース */
+            transition: background-color 0.8s ease;
+            border: 15px solid transparent;
             box-sizing: border-box;
+            overflow: hidden;
+            position: relative;
         }
 
-        /* セクションごとの背景と枠線のスタイル */
-        body.mode-0 { background-color: var(--color-think); border-color: var(--color-think-border); }
-        body.mode-1 { background-color: var(--color-ask); border-color: var(--color-ask-border); }
-        body.mode-2 { background-color: var(--color-finish); border-color: var(--color-finish-border); }
+        /* --- ブラッシュアップ：大きく見やすい現在時刻のスタイル --- */
+        #currentClock {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            font-size: 3rem; /* サイズを大きく！ */
+            font-weight: 700; /* 少し太めにして視認性アップ */
+            color: #333;
+            background: rgba(255, 255, 255, 0.6); /* 背景を少し濃く */
+            padding: 10px 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px); /* ぼかしを強くしておしゃれに */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* 浮き出ているような影 */
+            font-variant-numeric: tabular-nums; /* 数字が動いても幅が変わらない設定 */
+        }
+
+        /* モーダル */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(3px);
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-width: 400px;
+            width: 80%;
+        }
+
+        #closeModalBtn {
+            background-color: var(--color-think-border);
+            color: white;
+            padding: 12px 35px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
 
         .container {
             width: 80%;
@@ -40,6 +88,7 @@
             border-radius: 20px;
             backdrop-filter: blur(5px);
             box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            z-index: 10; /* 時計の下に潜り込まないように */
         }
 
         #display { font-size: 5rem; font-weight: bold; margin-bottom: 1rem; color: #333; }
@@ -52,7 +101,6 @@
         progress::-webkit-progress-bar { background-color: #eee; border-radius: 10px; }
         progress::-webkit-progress-value { border-radius: 10px; transition: width 0.3s linear; }
 
-        /* ボタンのデザイン */
         .controls { display: flex; justify-content: center; gap: 15px; }
         button {
             padding: 12px 25px;
@@ -67,11 +115,24 @@
         #controlBtn { background-color: #333; color: white; }
         #skipBtn { background-color: #fff; color: #333; border: 2px solid #333; }
 
-        /* 完了セット数 */
         #cycleCount { margin-top: 2rem; color: #888; font-size: 0.9rem; }
+
+        body.mode-0 { background-color: var(--color-think); border-color: var(--color-think-border); }
+        body.mode-1 { background-color: var(--color-ask); border-color: var(--color-ask-border); }
+        body.mode-2 { background-color: var(--color-finish); border-color: var(--color-finish-border); }
     </style>
 </head>
 <body class="mode-0">
+
+<div id="currentClock">00:00:00</div>
+
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal-content">
+        <h2>サプライズ！</h2>
+        <p>右上に時計を追加したよ！<br>これで複数タブを開かなくて済むかな？</p>
+        <button id="closeModalBtn">はじめる</button>
+    </div>
+</div>
 
 <div class="container">
     <div id="phaseName">Ready?</div>
@@ -109,17 +170,31 @@
     const btn = document.getElementById('controlBtn');
     const skipBtn = document.getElementById('skipBtn');
 
+    const modalOverlay = document.getElementById('modalOverlay');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    closeModalBtn.addEventListener('click', () => {
+        modalOverlay.style.display = 'none';
+    });
+
+    function updateClock() {
+        const now = new Date();
+        const h = now.getHours().toString().padStart(2, '0');
+        const m = now.getMinutes().toString().padStart(2, '0');
+        const s = now.getSeconds().toString().padStart(2, '0');
+        document.getElementById('currentClock').textContent = `${h}:${m}:${s}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
     function updateUI() {
         const mins = Math.floor(timeLeft / 60);
         const secs = timeLeft % 60;
         display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
-        // 背景と枠線のクラスを更新
         document.body.className = `mode-${currentIdx}`;
 
         phases.forEach((phase, index) => {
             const bar = document.getElementById(`bar${index}`);
-            // 各プログレスバーの色も連動
             const style = document.createElement('style');
             style.innerHTML = `#bar${index}::-webkit-progress-value { background-color: ${phases[index].color}; opacity: ${index === currentIdx ? 1 : 0.3}; }`;
             document.head.appendChild(style);
@@ -132,19 +207,6 @@
                 bar.value = 0;
             }
         });
-    }
-
-    function nextStep() {
-        currentIdx++;
-        if (currentIdx >= phases.length) {
-            currentIdx = 0;
-            cycles++;
-            cycleDisplay.textContent = `完了セット数: ${cycles}`;
-        }
-        timeLeft = phases[currentIdx].time;
-        phaseDisplay.textContent = phases[currentIdx].name;
-        updateUI();
-        if (timerId) start(); // 動いてる時は自動で次を開始
     }
 
     function start() {
@@ -160,6 +222,19 @@
         }, 1000);
     }
 
+    function nextStep() {
+        currentIdx++;
+        if (currentIdx >= phases.length) {
+            currentIdx = 0;
+            cycles++;
+            cycleDisplay.textContent = `完了セット数: ${cycles}`;
+        }
+        timeLeft = phases[currentIdx].time;
+        phaseDisplay.textContent = phases[currentIdx].name;
+        updateUI();
+        if (timerId) start();
+    }
+
     btn.addEventListener('click', () => {
         if (timerId) {
             clearInterval(timerId);
@@ -172,19 +247,11 @@
     });
 
     skipBtn.addEventListener('click', () => {
-        // 今動いているかどうかのフラグを保持
         const wasRunning = !!timerId;
-
-        // 今のタイマーを完全に止める
         if (timerId) {
             clearInterval(timerId);
             timerId = null;
         }
-
-        // 次のステップへ進む（内部でtimeLeftのセットとUI更新が行われる）
-        // 以前のコードのnextStep()の中でstart()を呼んでいた部分を整理して
-        // ここでコントロールするようにしたよ。
-
         currentIdx++;
         if (currentIdx >= phases.length) {
             currentIdx = 0;
@@ -193,14 +260,10 @@
         }
         timeLeft = phases[currentIdx].time;
         phaseDisplay.textContent = phases[currentIdx].name;
-
         updateUI();
-
-        // もともと動いていたなら、そのまま次のフェーズも開始する
         if (wasRunning) {
             start();
         } else {
-            // 止まってたなら、ボタンの表示を「スタート」に戻しておく
             btn.textContent = "スタート";
         }
     });
